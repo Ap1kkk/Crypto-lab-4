@@ -149,7 +149,6 @@ class GOSTHashContext:
         print(f"hash_size   : {self.hash_size}")
 
     def set_h(self, h):
-        print(f"updating h: {h}")
         self.h = h
 
 
@@ -191,8 +190,8 @@ def gost_hash_add_512(a: bytearray, b: bytearray) -> bytearray:
 
 # Функция GOSTHashS
 def gost_hash_s(state: bytearray):
-    # print("before: ")
-    # print(state)
+
+
     # Создаем новый массив для хранения результата
     internal = bytearray(64)
 
@@ -202,8 +201,8 @@ def gost_hash_s(state: bytearray):
 
     # Записываем результат обратно в state
     state[:] = internal
-    # print("after: ")
-    # print(state)
+
+
 
 # Функция GOSTHashP
 def gost_hash_p(state: bytearray):
@@ -242,8 +241,6 @@ def gost_hash_get_key(K, i):
     gost_hash_l(K)
 
 def gost_hash_e(K, m, state):
-    print("hash e before")
-    print(state)
     # 1. XOR с m и K, результат в state
     state = gost_hash_x(m, K)
 
@@ -260,8 +257,6 @@ def gost_hash_e(K, m, state):
         # XOR между состоянием и ключом, результат в state
         state = gost_hash_x(state, K)
 
-    print("hash e after")
-    print(state)
     return state
 
 def gost_hash_g(h, N, m):
@@ -278,14 +273,9 @@ def gost_hash_g(h, N, m):
     internal = bytearray(len(K))  # Промежуточный вектор
     internal = gost_hash_e(K, m, internal)
 
-    print("internal before xor")
-    print(internal)
-    print(m)
     # 4. Два XOR: сначала с h, затем с m
     internal = gost_hash_x(internal, h)
 
-    print("internal after xor")
-    print(internal)
     h = gost_hash_x(internal, m)
     return h
 
@@ -323,17 +313,12 @@ def gost_hash_stage_2(ctx: GOSTHashContext, data):
     ctx.h = gost_hash_g(ctx.h, ctx.N, data)
 
     # Добавляем v_512 к N
-    print("before: ")
-    print(ctx.N)
     ctx.N = gost_hash_add_512(ctx.N, ctx.v_512)
-    print("after: ")
-    print(ctx.N)
     # Обновляем контрольную сумму Sigma
     ctx.Sigma = gost_hash_add_512(ctx.Sigma, data)
 
 def gost_hash_stage_3(ctx: GOSTHashContext):
-    print("stage 3")
-    ctx.print()
+
     # Создаем внутренний вектор для размера сообщения
     internal = bytearray(64)
     internal[1] = ((ctx.buf_size * 8) >> 8) & 0xff
@@ -348,21 +333,18 @@ def gost_hash_stage_3(ctx: GOSTHashContext):
     ctx.N = gost_hash_add_512(ctx.N, internal)
     ctx.Sigma = gost_hash_add_512(ctx.Sigma, ctx.buffer)
 
-    print("after N + Sigma")
-    ctx.print()
+
 
     # Два вызова gost_hash_g с v_0
     ctx.h = gost_hash_g(ctx.h, ctx.v_0, ctx.N)
     ctx.h = gost_hash_g(ctx.h, ctx.v_0, ctx.Sigma)
 
-    print("after 2 g calls")
-    ctx.print()
+
     # Записываем результат в нужное место
     ctx.hash[:64] = ctx.h[:64]
 
 def gost_hash_update(ctx: GOSTHashContext, data):
     len_data = len(data)
-    print("update. len: " + str(len_data))
 
     # Обрабатываем полные блоки по 64 байта
     while len_data > 63 and ctx.buf_size == 0:
@@ -388,36 +370,29 @@ def gost_hash_update(ctx: GOSTHashContext, data):
             ctx.buf_size = 0  # Сбрасываем буфер после обработки
 
 def gost_hash_final(ctx: GOSTHashContext):
-    print("final")
     gost_hash_stage_3(ctx)
     ctx.buf_size = 0
 
 
-def calculate_file_hash(file_path, hash_size=512):
-    # Открываем файл для чтения в бинарном режиме
-    with open(file_path, 'rb') as file:
-        # Создаем контекст хеширования
-        ctx = GOSTHashContext()
-        ctx.hash_size = hash_size
-        gost_hash_init(ctx, hash_size)
+def get_gost_hash(message, hash_size=512):
+    # Преобразуем строку в байты
+    message_bytes = message.encode('utf-8')
 
-        # Чтение и обработка файла
-        while True:
-            buffer = bytearray(file.read(FILE_BUFFER_SIZE))  # Читаем данные из файла
-            if not buffer:
-                break  # Достигнут конец файла
-            gost_hash_update(ctx, buffer)  # Обновляем хеш с помощью прочитанных данных
+    # Создаем контекст хеширования
+    ctx = GOSTHashContext()
+    ctx.hash_size = hash_size
+    gost_hash_init(ctx, hash_size)
 
-        # Финализируем хеширование
-        gost_hash_final(ctx)
+    # Чтение и обработка сообщения по частям
+    buffer_size = 64  # Размер буфера для обработки, можно выбрать иное значение
+    for i in range(0, len(message_bytes), buffer_size):
+        buffer = bytearray(message_bytes[i:i + buffer_size])  # Читаем блоки данных из сообщения
+        gost_hash_update(ctx, buffer)  # Обновляем хеш с помощью прочитанных данных
 
-        # Возвращаем хеш-сумму как результат
-        return ctx.hash
+    # Финализируем хеширование
+    gost_hash_final(ctx)
 
-
-# Пример использования:
-file_path = 'input.txt'
-hash_result = calculate_file_hash(file_path, hash_size=512)
-
-# Выводим хеш в шестнадцатеричном виде
-print("Hash (hex):", ''.join(f'{byte:02x}' for byte in hash_result))
+    # Возвращаем хеш-сумму как результат
+    hex_hash_str = ''.join(f'{byte:02x}' for byte in ctx.hash)
+    print("Hash (hex):", hex_hash_str)
+    return hex_hash_str
