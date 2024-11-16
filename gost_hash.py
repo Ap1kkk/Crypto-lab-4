@@ -186,7 +186,7 @@ def gost_hash_add_512(a: bytearray, b: bytearray) -> bytearray:
         internal = a[i] + b[i] + (internal >> 8)  # складываем байты и учитываем перенос
         c[i] = internal & 0xff  # сохраняем только младший байт (переполнение отбрасывается)
 
-    return c  # Возвращаем результат как неизменяемый тип bytes
+    return c
 
 # Функция GOSTHashS
 def gost_hash_s(state: bytearray):
@@ -384,7 +384,7 @@ def get_gost_hash(message, hash_size=512):
     gost_hash_init(ctx, hash_size)
 
     # Чтение и обработка сообщения по частям
-    buffer_size = 64  # Размер буфера для обработки, можно выбрать иное значение
+    buffer_size = 64
     for i in range(0, len(message_bytes), buffer_size):
         buffer = bytearray(message_bytes[i:i + buffer_size])  # Читаем блоки данных из сообщения
         gost_hash_update(ctx, buffer)  # Обновляем хеш с помощью прочитанных данных

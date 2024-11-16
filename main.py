@@ -78,8 +78,10 @@ def main():
     signature = rsa_sign(decimal_hash % n, d, n)
     print(f"Подпись: {signature}")
 
+    second_message = input("Повторно введите сообщение: ")
+    second_message_decimal_hash = int(get_gost_hash(second_message)[:8], 16)
     # Проверка подписи
-    is_valid = rsa_verify(signature, decimal_hash % n, e, n)
+    is_valid = rsa_verify(signature, second_message_decimal_hash % n, e, n)
     if is_valid:
         print("Подпись верна.")
     else:
